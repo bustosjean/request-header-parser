@@ -1,30 +1,45 @@
-// index.js
-// where your node app starts
+const express = require('express');
+const cors = require('cors');
+const path = require('path');
 
-// init project
-require('dotenv').config();
-var express = require('express');
-var app = express();
+const app = express();
 
-// enable CORS (https://en.wikipedia.org/wiki/Cross-origin_resource_sharing)
-// so that your API is remotely testable by FCC
-var cors = require('cors');
-app.use(cors({ optionsSuccessStatus: 200 })); // some legacy browsers choke on 204
+// Permitir que el app confíe en el proxy (necesario en Render/Heroku)
+// para que req.ip devuelva la IP real usando X-Forwarded-For.
+app.enable('trust proxy');
 
-// http://expressjs.com/en/starter/static-files.html
-app.use(express.static('public'));
+app.use(cors({ optionsSuccessStatus: 200 }));
+app.use(express.static(path.join(__dirname, 'public')));
 
-// http://expressjs.com/en/starter/basic-routing.html
-app.get('/', function (req, res) {
-  res.sendFile(__dirname + '/views/index.html');
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'views', 'index.html'));
 });
 
-// your first API endpoint...
-app.get('/api/hello', function (req, res) {
-  res.json({ greeting: 'hello API' });
+// Ruta requerida por el desafío
+app.get('/api/whoami', (req, res) => {
+  // IP: preferimos x-forwarded-for (puede contener list), si no usar req.ip
+  let ip = req.headers['x-forwarded-for'] || req.ip || req.connection.remoteAddress || '';
+  // x-forwarded-for puede contener varias IPs: "client, proxy1, proxy2"
+  if (ip && ip.indexOf(',') !== -1) {
+    ip = ip.split(',')[0].trim();
+  }
+
+  // lenguaje preferido (tomamos el primero de la cabecera Accept-Language)
+  const rawLang = req.headers['accept-language'] || '';
+  const language = rawLang.split(',')[0];
+
+  // software (user agent)
+  const software = req.headers['user-agent'] || '';
+
+  res.json({
+    ipaddress: ip,
+    language: language,
+    software: software
+  });
 });
 
-// listen for requests :)
-var listener = app.listen(process.env.PORT || 3000, function () {
-  console.log('Your app is listening on port ' + listener.address().port);
+// Puerto
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`App listening on port ${PORT}`);
 });
